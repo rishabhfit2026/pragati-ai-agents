@@ -1,11 +1,17 @@
 """Risk Analysis Agent — section 12.
 
-Derives risk register entries deterministically from the outputs of the
-capability-matching and compliance agents, plus a few tender-metadata
-heuristics (quantity vs. published capacity, tight delivery windows).
+run_llm() is the active path when a real LLM provider is configured — it
+hands the model a structured summary of what the earlier agents found
+(capability gaps, unverified compliance items, tender metadata) and asks it
+to reason about technical/commercial/operational/competitive risk the way an
+experienced bid manager would, rather than only the fixed heuristics below.
+run_deterministic()/run() is the rule-based fallback used offline and
+whenever the LLM's response can't be validated.
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -13,8 +19,15 @@ from typing import Any
 from app.agents.commercial import DEFENCE_ORG_KEYWORDS
 from app.knowledge.loader import load_knowledge_base
 
+logger = logging.getLogger(__name__)
+
 QUANTITY_RE = re.compile(r"([\d,]{3,})")
 TIGHT_DELIVERY_RE = re.compile(r"\b(\d{1,2})\s*(day|days|week|weeks)\b", re.I)
+
+ALLOWED_RISK_CATEGORIES = {
+    "TECHNICAL", "COMPLIANCE", "COMMERCIAL", "OPERATIONAL", "DELIVERY", "DOCUMENTATION", "COMPETITION",
+}
+ALLOWED_LEVELS = {"LOW", "MEDIUM", "HIGH"}
 
 
 @dataclass
@@ -27,7 +40,7 @@ class RiskItem:
     mitigation: str
 
 
-def run(
+def run_deterministic(
     *,
     requirements: list[dict[str, Any]],
     capability_matches: list[Any],
@@ -142,3 +155,103 @@ def run(
         ))
 
     return risks
+
+
+RISK_PROMPT = """You are Pragati Defence Systems' risk analyst reviewing a tender opportunity ahead of a \
+bid/no-bid decision. Based ONLY on the structured findings below (from earlier analysis stages), produce a \
+risk register.
+
+Respond ONLY with a minified JSON array of risk objects, each with:
+- "category": one of "TECHNICAL", "COMPLIANCE", "COMMERCIAL", "OPERATIONAL", "DELIVERY", "DOCUMENTATION", "COMPETITION"
+- "description": one sentence describing the specific risk
+- "severity": "LOW", "MEDIUM", or "HIGH"
+- "probability": "LOW", "MEDIUM", or "HIGH"
+- "evidence": one sentence citing the specific finding below that this risk is based on
+- "mitigation": one concrete, actionable recommendation
+
+RULES:
+- Every risk must be traceable to something in the findings below — do not invent risks with no basis.
+- Prioritize: mandatory requirements with no confirmed capability (TECHNICAL, usually HIGH), unverified
+  certifications/compliance items (COMPLIANCE), quantity vs. disclosed production capacity (OPERATIONAL),
+  tight delivery windows (DELIVERY), and competitive pressure for high-profile government/defence buyers (COMPETITION).
+- Produce between 1 and 8 risks — quality over quantity, no filler.
+
+FINDINGS:
+{findings_json}
+"""
+
+
+def run_llm(
+    *,
+    requirements: list[dict[str, Any]],
+    capability_matches: list[Any],
+    compliance_results: list[tuple[int, Any]],
+    tender_metadata: dict[str, Any],
+    llm: Any,
+) -> list[RiskItem]:
+    mandatory_gaps = [
+        r["description"] for r, m in zip(requirements, capability_matches) if m.status == "GAP" and r["mandatory"]
+    ]
+    compliance_summary = [
+        {"title": c.title, "status": c.status, "evidence": c.evidence} for _, c in compliance_results
+    ]
+    findings = {
+        "tender_metadata": tender_metadata,
+        "mandatory_requirements_with_no_confirmed_capability": mandatory_gaps,
+        "compliance_items": compliance_summary,
+        "total_requirements": len(requirements),
+        "gap_count": sum(1 for m in capability_matches if m.status == "GAP"),
+        "unknown_compliance_count": sum(1 for _, c in compliance_results if c.status == "UNKNOWN"),
+    }
+
+    raw = llm.complete_json(RISK_PROMPT.format(findings_json=json.dumps(findings)))
+    if not isinstance(raw, list):
+        raise ValueError("Risk agent LLM response was not a JSON array")
+
+    risks: list[RiskItem] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        category = item.get("category")
+        severity = item.get("severity")
+        probability = item.get("probability")
+        if category not in ALLOWED_RISK_CATEGORIES or severity not in ALLOWED_LEVELS or probability not in ALLOWED_LEVELS:
+            continue
+        description = str(item.get("description") or "").strip()
+        if not description:
+            continue
+        risks.append(RiskItem(
+            category=category,
+            description=description[:300],
+            severity=severity,
+            probability=probability,
+            evidence=str(item.get("evidence") or "")[:300] or "See findings summary.",
+            mitigation=str(item.get("mitigation") or "")[:300] or "Manual review recommended.",
+        ))
+
+    if not risks:
+        raise ValueError("Risk agent LLM response produced no valid risk entries")
+    return risks
+
+
+def run(
+    *,
+    requirements: list[dict[str, Any]],
+    capability_matches: list[Any],
+    compliance_results: list[tuple[int, Any]],
+    tender_metadata: dict[str, Any],
+    llm: Any = None,
+) -> list[RiskItem]:
+    if llm is not None and getattr(llm, "supports_generic_completion", False):
+        try:
+            return run_llm(
+                requirements=requirements, capability_matches=capability_matches,
+                compliance_results=compliance_results, tender_metadata=tender_metadata, llm=llm,
+            )
+        except Exception as e:
+            logger.warning("LLM-based risk analysis failed, falling back to deterministic rules: %s", e)
+
+    return run_deterministic(
+        requirements=requirements, capability_matches=capability_matches,
+        compliance_results=compliance_results, tender_metadata=tender_metadata,
+    )

@@ -119,6 +119,14 @@ def run_pipeline(
         """Only inject the simulated failure into the stage it targets."""
         return simulate_failure if simulate_failure == name else None
 
+    def current_model_label() -> str | None:
+        """Best-known label for 'which model is serving LLM-backed stages
+        right now' — for a failover chain this reflects whichever provider
+        most recently succeeded, not just the static candidate list."""
+        if not getattr(llm, "supports_generic_completion", False):
+            return None
+        return getattr(llm, "last_used_label", None) or llm.model
+
     analysis = Analysis(
         tender_id=tender.id,
         status="RUNNING",
@@ -197,14 +205,15 @@ def run_pipeline(
             requirement_rows.append(row)
         db.flush()
 
-        # 3. Capability Matching
-        match_results, _ = _run_stage(
+        # 3. Capability Matching (LLM + RAG when a real provider is configured)
+        match_results, cap_run_row = _run_stage(
             db, analysis.id, "Capability Matching Agent",
             lambda is_retry: capability_matching.run(
-                requirements_data,
+                requirements_data, llm=llm,
                 simulate_failure=None if is_retry else sim("TOOL_ERROR"),
             ),
         )
+        cap_run_row.model_used = current_model_label()
         for row, m in zip(requirement_rows, match_results):
             db.add(CapabilityMatch(
                 analysis_id=analysis.id, requirement_id=row.id, status=m.status, confidence=m.confidence,
@@ -215,11 +224,12 @@ def run_pipeline(
         log_event(db, tender_id=tender.id, analysis_id=analysis.id, event_type="CAPABILITY_MATCHED",
                   description=f"Capability matching complete — {gap_count} gap(s) identified against {len(match_results)} requirement(s).")
 
-        # 4. Compliance
-        compliance_results, _ = _run_stage(
+        # 4. Compliance (LLM when a real provider is configured)
+        compliance_results, comp_run_row = _run_stage(
             db, analysis.id, "Eligibility & Compliance Agent",
-            lambda is_retry: compliance.run(requirements_data),
+            lambda is_retry: compliance.run(requirements_data, llm=llm),
         )
+        comp_run_row.model_used = current_model_label()
         for idx, c in compliance_results:
             db.add(ComplianceItem(
                 analysis_id=analysis.id, requirement_id=requirement_rows[idx].id, title=c.title,
@@ -229,14 +239,15 @@ def run_pipeline(
         log_event(db, tender_id=tender.id, analysis_id=analysis.id, event_type="COMPLIANCE_ANALYZED",
                   description=f"Compliance matrix built with {len(compliance_results)} item(s).")
 
-        # 5. Risk
-        risk_results, _ = _run_stage(
+        # 5. Risk (LLM when a real provider is configured)
+        risk_results, risk_run_row = _run_stage(
             db, analysis.id, "Risk Analysis Agent",
             lambda is_retry: risk.run(
                 requirements=requirements_data, capability_matches=match_results,
-                compliance_results=compliance_results, tender_metadata=tender_metadata,
+                compliance_results=compliance_results, tender_metadata=tender_metadata, llm=llm,
             ),
         )
+        risk_run_row.model_used = current_model_label()
         for rk in risk_results:
             db.add(Risk(
                 analysis_id=analysis.id, category=rk.category, description=rk.description,
@@ -246,11 +257,12 @@ def run_pipeline(
         log_event(db, tender_id=tender.id, analysis_id=analysis.id, event_type="RISK_ANALYZED",
                   description=f"{len(risk_results)} risk(s) identified across the risk register.")
 
-        # 6. Commercial / Strategic
-        commercial_result, _ = _run_stage(
+        # 6. Commercial / Strategic (LLM when a real provider is configured)
+        commercial_result, comm_run_row = _run_stage(
             db, analysis.id, "Commercial & Strategic Analysis Agent",
-            lambda is_retry: commercial.run(tender_metadata, requirements_data),
+            lambda is_retry: commercial.run(tender_metadata, requirements_data, llm=llm),
         )
+        comm_run_row.model_used = current_model_label()
 
         # 7. Scoring (deterministic)
         score_result, _ = _run_stage(

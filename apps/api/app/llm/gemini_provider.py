@@ -10,7 +10,7 @@ class GeminiProvider(OpenAICompatibleProvider):
     name = "gemini"
     base_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 
-    def __init__(self, model: str = "gemini-2.0-flash", api_key: str | None = None):
+    def __init__(self, model: str = "gemini-3.6-flash", api_key: str | None = None):
         from app.config import settings
 
         super().__init__(api_key=api_key or settings.gemini_api_key or "", model=model)

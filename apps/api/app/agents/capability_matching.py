@@ -2,17 +2,32 @@
 
 For every extracted requirement, determines whether Pragati's public
 product/capability knowledge base supports it: MATCH, PARTIAL_MATCH, UNKNOWN,
-or GAP. Matching is done with transparent keyword/token overlap scoring (not
-an opaque LLM judgement) so every verdict can show its evidence.
+or GAP.
+
+Two implementations:
+  - run_llm(): LLM + RAG — retrieve() picks relevant knowledge-base products
+    per requirement (see app/knowledge/retriever.py), then a single batched
+    LLM call reasons over the retrieved evidence for the whole requirement
+    set at once. This is the active path whenever a real LLM provider is
+    configured.
+  - match_requirement() / run(): deterministic keyword/token overlap scoring.
+    Used when no real LLM is available (offline/mock mode), and as an
+    automatic per-requirement fallback if the LLM's response for that
+    requirement is missing, malformed, or cites a knowledge-base id that was
+    never actually offered to it (never trust an uncited MATCH).
 """
 from __future__ import annotations
 
+import json
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any
 
 from app.agents.errors import ToolError
 from app.knowledge.loader import load_knowledge_base, searchable_product_text
+
+logger = logging.getLogger(__name__)
 
 STOPWORDS = {
     "the", "and", "for", "with", "shall", "must", "should", "this", "that", "from", "will",
@@ -120,7 +135,99 @@ def match_requirement(description: str, category: str) -> MatchResult:
     )
 
 
-def run(requirements: list[dict[str, Any]], *, simulate_failure: str | None = None) -> list[MatchResult]:
+CAPABILITY_MATCH_PROMPT = """You are Pragati Defence Systems' capability-matching analyst. For each \
+numbered requirement below, decide whether Pragati's product/capability knowledge base (also provided) \
+supports it.
+
+Respond ONLY with a minified JSON array, one object per requirement in the same order, each with:
+- "index": the requirement's index (int)
+- "status": one of "MATCH", "PARTIAL_MATCH", "UNKNOWN", "GAP"
+- "confidence": float 0-1
+- "evidence": one sentence citing SPECIFIC facts from the knowledge-base excerpts (or explaining why none apply)
+- "kb_reference_id": the "id" field of the knowledge-base product you are citing, or null if none
+
+RULES (be conservative — this feeds a real bid/no-bid business decision, never invent a capability):
+- Only use "MATCH" if a specific knowledge-base entry EXPLICITLY and concretely supports this exact requirement.
+- Use "PARTIAL_MATCH" if a related product exists but doesn't explicitly confirm this exact spec.
+- Use "GAP" if the requirement is clearly outside anything in the knowledge base (e.g. drones, radar, software, cyber, satellites).
+- Use "UNKNOWN" otherwise — do not guess.
+- "kb_reference_id" MUST be an "id" that literally appears in the knowledge-base excerpts below, or null. Never invent one.
+
+REQUIREMENTS:
+{requirements_json}
+
+KNOWLEDGE BASE EXCERPTS (pre-retrieved as relevant to these requirements):
+{kb_json}
+"""
+
+
+def run_llm(requirements: list[dict[str, Any]], llm: Any) -> list[MatchResult]:
+    from app.knowledge.retriever import retrieve_relevant_products
+
+    candidate_by_id: dict[str, dict] = {}
+    for r in requirements:
+        for p in retrieve_relevant_products(r["description"], top_k=3):
+            candidate_by_id[p["id"]] = p
+    candidates = list(candidate_by_id.values())[:24]  # cap prompt size
+    valid_ids = {p["id"] for p in candidates}
+
+    req_payload = [
+        {"index": i, "description": r["description"], "category": r["category"]}
+        for i, r in enumerate(requirements)
+    ]
+    kb_payload = [{k: v for k, v in p.items() if not k.startswith("_")} for p in candidates]
+
+    prompt = CAPABILITY_MATCH_PROMPT.format(
+        requirements_json=json.dumps(req_payload), kb_json=json.dumps(kb_payload)
+    )
+    raw = llm.complete_json(prompt)
+
+    by_index: dict[int, dict] = {}
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict) and isinstance(item.get("index"), int):
+                by_index[item["index"]] = item
+
+    results: list[MatchResult] = []
+    for i, r in enumerate(requirements):
+        item = by_index.get(i)
+        status = item.get("status") if item else None
+        if not item or status not in ("MATCH", "PARTIAL_MATCH", "UNKNOWN", "GAP"):
+            results.append(match_requirement(r["description"], r["category"]))
+            continue
+
+        kb_ref = item.get("kb_reference_id")
+        if kb_ref not in valid_ids:
+            # The model cited (or invented) a reference outside what it was
+            # actually given — never let an uncited claim stand as a MATCH.
+            if status == "MATCH":
+                status = "UNKNOWN"
+            kb_ref = None
+        product = candidate_by_id.get(kb_ref)
+        try:
+            confidence = float(item.get("confidence", 0.6))
+        except (TypeError, ValueError):
+            confidence = 0.6
+        results.append(MatchResult(
+            status=status,
+            confidence=max(0.0, min(confidence, 1.0)),
+            evidence=str(item.get("evidence") or "LLM did not provide evidence.")[:400],
+            kb_reference_id=kb_ref,
+            kb_reference_name=product["name"] if product else None,
+        ))
+    return results
+
+
+def run(
+    requirements: list[dict[str, Any]], *, llm: Any = None, simulate_failure: str | None = None
+) -> list[MatchResult]:
     if simulate_failure == "TOOL_ERROR":
         raise ToolError("Simulated knowledge base lookup failure in Capability Matching Agent")
+
+    if llm is not None and getattr(llm, "supports_generic_completion", False):
+        try:
+            return run_llm(requirements, llm)
+        except Exception as e:
+            logger.warning("LLM+RAG capability matching failed, falling back to deterministic scoring: %s", e)
+
     return [match_requirement(r["description"], r["category"]) for r in requirements]

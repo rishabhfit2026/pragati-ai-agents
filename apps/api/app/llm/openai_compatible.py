@@ -16,10 +16,14 @@ from app.services.pdf_extract import PageExtract
 class OpenAICompatibleProvider(LLMProvider):
     base_url: str
     supports_json_mode: bool = True
+    supports_generic_completion = True
 
     def __init__(self, api_key: str, model: str):
         self.api_key = api_key
         self.model = model
+
+    def complete_json(self, prompt: str) -> Any:
+        return self._parse_json(self._call(prompt))
 
     def _call(self, prompt: str) -> str:
         headers = {"Authorization": f"Bearer {self.api_key}", "content-type": "application/json"}

@@ -5,6 +5,8 @@ from app.llm.provider import LLMProviderError
 
 
 class FakeProvider:
+    supports_generic_completion = False
+
     def __init__(self, name, model, fail=False, requirements=None):
         self.name = name
         self.model = model

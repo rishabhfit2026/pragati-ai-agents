@@ -35,6 +35,7 @@ class FailoverLLMProvider(LLMProvider):
         self.providers = providers
         self.last_used: LLMProvider | None = None
         self.model = "+".join(f"{p.name}:{p.model}" for p in providers)
+        self.supports_generic_completion = any(p.supports_generic_completion for p in providers)
 
     def _try_each(self, fn: Callable[[LLMProvider], T]) -> T:
         errors: list[str] = []
@@ -64,3 +65,23 @@ class FailoverLLMProvider(LLMProvider):
 
     def extract_requirements(self, pages: list[PageExtract]) -> list[dict[str, Any]]:
         return self._try_each(lambda p: p.extract_requirements(pages))
+
+    def complete_json(self, prompt: str) -> Any:
+        capable = [p for p in self.providers if p.supports_generic_completion]
+        if not capable:
+            raise NotImplementedError("No provider in this failover chain supports generic completions")
+        errors: list[str] = []
+        for provider in capable:
+            try:
+                result = provider.complete_json(prompt)
+            except LLMError as e:
+                logger.warning("LLM provider %s failed, trying next: %s", provider.name, e)
+                errors.append(f"{provider.name}: {e}")
+                continue
+            except Exception as e:  # noqa: BLE001
+                logger.warning("LLM provider %s raised unexpectedly, trying next: %s", provider.name, e)
+                errors.append(f"{provider.name}: {e}")
+                continue
+            self.last_used = provider
+            return result
+        raise AllProvidersFailedError(f"All {len(capable)} LLM provider(s) failed: " + " | ".join(errors))

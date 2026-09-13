@@ -37,9 +37,13 @@ TENDER TEXT (pages are marked [[PAGE n]]):
 
 class AnthropicProvider(LLMProvider):
     name = "anthropic"
+    supports_generic_completion = True
 
     def __init__(self, model: str = "claude-sonnet-5"):
         self.model = model
+
+    def complete_json(self, prompt: str) -> Any:
+        return self._parse_json(self._call(prompt))
 
     def _call(self, prompt: str) -> str:
         headers = {

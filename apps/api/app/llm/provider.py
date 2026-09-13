@@ -23,6 +23,17 @@ class LLMProvider(ABC):
     name: str
     model: str
 
+    # Whether this provider can answer an arbitrary prompt-with-JSON-response
+    # (complete_json below) — true for every real provider, false for the
+    # mock provider, which can only implement the two typed extraction
+    # methods below via rules/regex, not arbitrary NLU. Agents that got
+    # upgraded to LLM reasoning (Capability Matching, Compliance, Risk,
+    # Commercial/Strategic) check this flag and fall back to their
+    # deterministic logic when it's false — offline/mock mode keeps working,
+    # and a provider that can't do generic completions is never silently
+    # asked to.
+    supports_generic_completion: bool = False
+
     @abstractmethod
     def extract_tender_metadata(self, pages: list[PageExtract]) -> dict[str, Any]:
         ...
@@ -30,6 +41,11 @@ class LLMProvider(ABC):
     @abstractmethod
     def extract_requirements(self, pages: list[PageExtract]) -> list[dict[str, Any]]:
         ...
+
+    def complete_json(self, prompt: str) -> Any:
+        """Send an arbitrary prompt, get back parsed JSON. Only implemented by
+        providers with supports_generic_completion = True."""
+        raise NotImplementedError(f"{self.name} does not support generic completions")
 
 
 class LLMError(Exception):

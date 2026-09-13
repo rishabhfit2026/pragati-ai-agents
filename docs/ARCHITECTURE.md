@@ -50,6 +50,30 @@ issues) and, on demand, for the developer-mode failure simulator
 (`simulate_failure: OCR_TIMEOUT | LLM_TIMEOUT | INVALID_JSON | TOOL_ERROR`)
 that seeds two of the demo tenders with genuine recorded failures.
 
+### Which stages call an LLM
+
+| Stage | LLM? | Notes |
+|---|---|---|
+| Document Intelligence | OCR only | Nemotron OCR v2 for scanned pages; PyMuPDF for native text |
+| Requirement Extraction | **Yes** | Turns raw text into structured requirements |
+| Capability Matching | **Yes + RAG** | Lexical retrieval (`app/knowledge/retriever.py`) over the product catalogue, then LLM reasoning over the retrieved candidates |
+| Eligibility & Compliance | **Yes** | Reasons over the full (small) capabilities knowledge base |
+| Risk Analysis | **Yes** | Reasons over the structured findings from the two agents above |
+| Commercial & Strategic | **Yes** | Produces the three business sub-scores + grounded notes |
+| Opportunity Scoring | No | Pure deterministic weighted sum — see below |
+| Decision | No | Deterministic business rules — see below |
+| Human Review | No | UI-driven override, out of band |
+
+Every LLM-backed agent (Capability Matching, Compliance, Risk, Commercial/
+Strategic) has a **deterministic twin** (`match_requirement`/`evaluate_compliance`/
+`run_deterministic` in each module) that is used automatically when no real
+LLM provider is configured (offline/mock mode) and as a per-call safety net
+if the LLM's response is missing, malformed, or fails validation (e.g. an
+uncited "MATCH", an out-of-range score, an invalid risk category). This is
+the same fallback pattern already proven on Requirement Extraction — nothing
+about moving these agents to LLM reasoning removes the guarantee that the
+system degrades gracefully rather than corrupting the pipeline.
+
 ## Why a score is trustworthy
 
 The **Opportunity Score is pure arithmetic** (`agents/scoring.py`) over the
@@ -65,13 +89,17 @@ counts, score bands) — the LLM narrative explains the decision, it never
 makes it.
 
 The **Capability Matching Agent** and **Compliance Agent** are two distinct,
-deliberately different lenses over the same requirements:
+deliberately different lenses over the same requirements, both LLM-reasoned
+when a real provider is configured:
 - Capability Matching asks "does a Pragati product plausibly cover this?"
-  (broad, engineering-oriented, keyword/token overlap against the public
-  product catalogue).
+  (broad, engineering-oriented — RAG over the public product catalogue, then
+  LLM judgement grounded in only the retrieved candidates; a MATCH citing a
+  product id that wasn't actually retrieved is rejected and downgraded, so
+  the model can't hallucinate a citation).
 - Compliance asks "can we prove it?" (narrow, conservative — a certification
   claim in marketing copy is `UNKNOWN`, never `MATCH`, until independently
-  verified). An `Unknown` can never silently become a pass in either lens.
+  verified — enforced both in the prompt and, for the deterministic fallback,
+  in code). An `Unknown` can never silently become a pass in either lens.
 
 ## Data model
 
