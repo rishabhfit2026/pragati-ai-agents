@@ -1,0 +1,23 @@
+{
+  "_source": "https://www.pragatidefence.com/ and /about (public marketing pages, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA. Capacity and process claims are as published; not independently audited for this prototype.",
+  "facility_name": "Pragati Works (in-house)",
+  "processes": [
+    "Ballistic-grade aramid processing",
+    "Dyneema (UHMWPE) processing",
+    "Ceramic composite (CeraTech) processing",
+    "Hydraulic press line operations",
+    "Flat panel production",
+    "Complex 3D geometry moulding (helmets, curved plates)"
+  ],
+  "quality_controls": [
+    "Independent material batch verification (per public site)"
+  ],
+  "stated_capacity": {
+    "spall_liner": "1,000+ sq. meters per week, two shifts (per public site)",
+    "other_lines": "Unknown — requires verification"
+  },
+  "scale_up_capacity": "Unknown — requires verification (no published max monthly/annual unit output for helmets, vests, or plates)",
+  "export_control_licenses": "Unknown — requires verification",
+  "confidence": 0.7
+}

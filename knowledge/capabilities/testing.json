@@ -1,0 +1,12 @@
+{
+  "_source": "https://www.pragatidefence.com/ and /plate-story (public marketing pages, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA. Not independently audited for this prototype.",
+  "capabilities": [
+    "In-house independent ballistic laboratory testing",
+    "Documented failure logs per product batch (per public site)",
+    "Third-party test reports accompanying products (per public site — specific accredited lab names not published)"
+  ],
+  "accredited_lab_partnerships": "Unknown — requires verification (no NABL/accredited lab name published)",
+  "test_standards_referenced": ["NIJ 0101.06", "NIJ 0115.00", "STANAG 4569", "STANAG 2920", "VPAM", "BIS (Bureau of Indian Standards) L5-L6", "NATO AEP-55"],
+  "confidence": 0.6
+}

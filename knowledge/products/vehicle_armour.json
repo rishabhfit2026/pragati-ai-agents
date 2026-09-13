@@ -1,0 +1,77 @@
+{
+  "_source": "https://www.pragatidefence.com/products (public marketing page, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA — figures are as published on the public website. Independent/current test certificates were not verified for this prototype.",
+  "category": "Platform Armour (M-RACC) — Land / Air / Naval",
+  "products": [
+    {
+      "id": "platform-001",
+      "name": "M-RACC KE (Kinetic Energy)",
+      "protection_standards": ["STANAG 4569 Level 1-6+"],
+      "variants": [
+        {"level": "V1", "threat": "7.62x54R B32 API / 7.62x51 AP", "total_areal_density": "112 kg/m2", "addon_areal_density": "45 kg/m2"},
+        {"level": "V2", "threat": "14.5x114 API B32", "total_areal_density": "134 kg/m2", "addon_areal_density": "67 kg/m2"},
+        {"level": "V3", "threat": "25x137mm APFSDS-T", "total_areal_density": "204 kg/m2", "addon_areal_density": "137 kg/m2"},
+        {"level": "V4", "threat": "30x173 APFSDS-T", "total_areal_density": "400 kg/m2", "addon_areal_density": "334 kg/m2"}
+      ],
+      "confidence": 0.8,
+      "unknowns": ["Independent STANAG 4569 certification body/report — Unknown, requires verification"]
+    },
+    {
+      "id": "platform-002",
+      "name": "M-RACC IED",
+      "protection_standards": ["STANAG 4569-based blast protection"],
+      "threats_defeated": ["Blast IED up to EFP (explosively formed penetrator)"],
+      "confidence": 0.7,
+      "unknowns": []
+    },
+    {
+      "id": "platform-003",
+      "name": "M-RACC SC (Shaped Charge)",
+      "threats_defeated": ["RPG-7V (passive)"],
+      "development_status": "Top-attack protection in development",
+      "confidence": 0.7,
+      "unknowns": []
+    },
+    {
+      "id": "platform-004",
+      "name": "M-RACC Mines",
+      "threats_defeated": ["Anti-tank mines", "Anti-personnel mines", "Blast", "EFP variants"],
+      "confidence": 0.7,
+      "unknowns": []
+    },
+    {
+      "id": "platform-005",
+      "name": "M-RACC Bomblets",
+      "threats_defeated": ["Top-attack cluster munitions", "Drone-dropped munitions"],
+      "protection_type": "Fully passive",
+      "confidence": 0.65,
+      "unknowns": []
+    },
+    {
+      "id": "platform-006",
+      "name": "Cockpit Floor & Wall Armour",
+      "domain": "Air platform",
+      "materials": ["Precision-fit composite"],
+      "features": ["Zero airframe modification", "Fixed and rotary wing compatible"],
+      "confidence": 0.7,
+      "unknowns": []
+    },
+    {
+      "id": "platform-007",
+      "name": "Combatants-to-RIBs Naval Armour",
+      "domain": "Naval platform",
+      "protection_type": ["Kinetic energy", "Shaped charge", "Overmatch liner"],
+      "materials": ["Metal", "Composite (externally qualified)"],
+      "confidence": 0.65,
+      "unknowns": []
+    },
+    {
+      "id": "platform-008",
+      "name": "Liner, Overmatch & Mounts",
+      "category_note": "Support components for platform armour integration",
+      "production_capacity": "1,000+ m2 of spall liner per week (two shifts, per public site)",
+      "confidence": 0.7,
+      "unknowns": []
+    }
+  ]
+}

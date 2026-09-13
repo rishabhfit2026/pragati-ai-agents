@@ -1,0 +1,83 @@
+{
+  "_source": "https://www.pragatidefence.com/products (public marketing page, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA — figures are as published on the public website. Independent/current test certificates were not verified for this prototype.",
+  "category": "Hard & Soft Armour / Ballistic Panels",
+  "products": [
+    {
+      "id": "plate-001",
+      "name": "MaxGuard",
+      "flagship": true,
+      "protection_standards": ["NIJ Level IV"],
+      "materials": ["CeraTech L6 ceramic", "MaxForm multi-curve backing"],
+      "weight": "3.7-4.4 kg",
+      "coverage_area": "929-1135 cm2",
+      "back_face_deformation": "<25mm",
+      "multi_hit_capacity": "Six .30 caliber AP hits at 878 m/s on one plate",
+      "threats_defeated": ["7.62x54R B32", "7.62x39 API BZ"],
+      "warranty": "5 years",
+      "confidence": 0.85,
+      "unknowns": ["Independent NIJ 0101.06 certificate number — Unknown, requires verification"]
+    },
+    {
+      "id": "plate-002",
+      "name": "Defender / Defender Pro",
+      "protection_standards": ["NIJ Level IV (core: 6x .30 CAL AP)"],
+      "weight": "2.7-4.4 kg",
+      "variant_notes": "Pro variant: sub-30mm profile, 10% lighter",
+      "shelf_life": "10 years",
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "plate-003",
+      "name": "Viper Discreet",
+      "protection_standards": ["NIJ III+ (multi-hit)"],
+      "materials": ["Pure UHMWPE, no ceramic"],
+      "weight": "900 g minimum",
+      "areal_density": "12 kg/m2",
+      "profile": "<30mm",
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "plate-004",
+      "name": "Helios SF",
+      "threats_defeated": ["SS109/M855A1"],
+      "areal_density": "23 kg/m2 (lightest in range, manufacturer claim)",
+      "weight": "1.55-1.8 kg",
+      "designation": "SF-exclusive",
+      "confidence": 0.75,
+      "unknowns": ["Formal protection standard rating not published — Unknown, requires verification"]
+    },
+    {
+      "id": "plate-005",
+      "name": "ArmorLite B32",
+      "materials": ["CeraTech L6 ceramic"],
+      "threats_defeated": ["7.62x54R B32 API"],
+      "areal_density": "35 kg/m2",
+      "profile": "<25mm",
+      "protection_standards": ["NIJ 0101.06"],
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "plate-006",
+      "name": "Side, Throat & Groin Panels",
+      "category_note": "Modular supplementary panels",
+      "protection_standards": ["NIJ Level IV (tile structure)"],
+      "weight": "1.25-1.6 kg each",
+      "coverage_area": "360-400 cm2 per panel",
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "plate-007",
+      "name": "Soft Armour range",
+      "variants": ["IIIA", "IIIA + anti-stab Level 2", "Ultra-thin concealable (<5mm)"],
+      "areal_density": "3.7-6.0 kg/m2",
+      "protection_standards": ["STANAG 2920"],
+      "confidence": 0.75,
+      "unknowns": []
+    }
+  ]
+}

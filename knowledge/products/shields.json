@@ -1,0 +1,41 @@
+{
+  "_source": "https://www.pragatidefence.com/products (public marketing page, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA — figures are as published on the public website. Independent/current test certificates were not verified for this prototype.",
+  "category": "Mobile Cover / Ballistic Shields",
+  "products": [
+    {
+      "id": "shield-001",
+      "name": "EXO Shield 6 Pro",
+      "flagship": true,
+      "protection_standards": ["NIJ Level IV", "BIS L6"],
+      "variants": [
+        {"size": "760x390mm", "total_weight": "11.5 kg", "in_hand_weight": "<3 kg", "coverage": "2550 cm2"},
+        {"size": "820x560mm", "total_weight": "16.0 kg", "in_hand_weight": "<5 kg", "coverage": "4050 cm2"}
+      ],
+      "features": ["Hydraulic-stabilized harness", "Self-adjusting gun mount", "Integrated IR imaging", "10 inch display", "Full-cover aim and engage capability"],
+      "threats_defeated": ["7.62x54R API B32 (6 shots)", "API BZ", ".308 WIN"],
+      "confidence": 0.85,
+      "unknowns": []
+    },
+    {
+      "id": "shield-002",
+      "name": "Ballistic Shield 2",
+      "protection_standards": ["NIJ III++", "RF2+"],
+      "weight": "15 kg",
+      "viewport": "Replaceable 20x10 cm, min shield size 900x500mm",
+      "multi_hit_capacity": "10x 7.62x39 API BZ, 8x 7.62x51 M80",
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "shield-003",
+      "name": "Ballistic Shield 2 Pro",
+      "protection_standards": ["NIJ Level IV", "BIS L6"],
+      "weight": "22 kg",
+      "multi_hit_capacity": "8x 7.62x54R API B32 (sniper-grade AP)",
+      "features": ["600-lumen front light", "Covers all handheld threats per manufacturer"],
+      "confidence": 0.8,
+      "unknowns": []
+    }
+  ]
+}

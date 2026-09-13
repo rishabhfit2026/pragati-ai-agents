@@ -1,0 +1,18 @@
+{
+  "_source": "https://www.pragatidefence.com/ (public marketing page, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA. These are STANDARDS referenced by Pragati's marketing as targets/benchmarks met by specific products — not a list of accredited certificates on file. Certificate numbers, issuing bodies, and expiry dates are NOT published and must be verified before being used in a bid response.",
+  "standards_referenced": [
+    {"standard": "NIJ 0101.06", "domain": "Ballistic resistance of body armor", "certificate_on_file": "Unknown — requires verification"},
+    {"standard": "NIJ 0115.00", "domain": "Stab resistance of body armor", "certificate_on_file": "Unknown — requires verification"},
+    {"standard": "BIS L5-L6", "domain": "Bureau of Indian Standards ballistic levels", "certificate_on_file": "Unknown — requires verification"},
+    {"standard": "STANAG 4569", "domain": "NATO vehicle armour protection levels", "certificate_on_file": "Unknown — requires verification"},
+    {"standard": "STANAG 2920", "domain": "NATO fragment protection testing", "certificate_on_file": "Unknown — requires verification"},
+    {"standard": "NATO AEP-55", "domain": "NATO mine/IED protection for vehicles", "certificate_on_file": "Unknown — requires verification"},
+    {"standard": "VPAM", "domain": "German ballistic resistance classification", "certificate_on_file": "Unknown — requires verification"}
+  ],
+  "iso_9001": "Unknown — requires verification",
+  "as9100": "Unknown — requires verification",
+  "dgqa_approval": "Unknown — requires verification",
+  "ministry_of_defence_empanelment": "Unknown — requires verification",
+  "confidence": 0.5
+}

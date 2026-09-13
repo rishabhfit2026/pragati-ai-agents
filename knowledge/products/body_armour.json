@@ -1,0 +1,78 @@
+{
+  "_source": "https://www.pragatidefence.com/products (public marketing page, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA — figures are as published on the public website. Independent/current test certificates were not verified for this prototype.",
+  "category": "Torso Systems / Carriers & Vests",
+  "products": [
+    {
+      "id": "vest-001",
+      "name": "Kavach XT",
+      "flagship": true,
+      "protection_standards": ["BIS Level 5 Front/Back/Side"],
+      "weight": {"full_kit": "9.0-10.0 kg"},
+      "features": ["Detachable throat and groin panels", "RapidExit full removal <3 seconds single action", "DynaFlex 30% thinner / 50% more flexible", "VaporWick liner", "360 degree MOLLE"],
+      "notes": "Marketed as developed with Indian Army consultation.",
+      "confidence": 0.85,
+      "unknowns": ["Independent BIS certificate number — Unknown, requires verification"]
+    },
+    {
+      "id": "vest-002",
+      "name": "Vanguard R6",
+      "protection_standards": ["NIJ Level IV Front/Back/Side"],
+      "weight": {"full_kit": "6.5-8.5 kg"},
+      "materials": ["1000D Cordura carrier fabric"],
+      "features": ["RapidExit"],
+      "confidence": 0.85,
+      "unknowns": []
+    },
+    {
+      "id": "vest-003",
+      "name": "Commando",
+      "protection_standards": ["BIS Level 6 (front, back, side, throat, groin)"],
+      "features": ["Integrated hydration system"],
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "vest-004",
+      "name": "Fortress",
+      "protection_standards": ["360 degree NIJ IV + IIIA (arms, groin, sides)"],
+      "weight": {"full_kit": "10.5-12 kg"},
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "vest-005",
+      "name": "Ghost",
+      "materials": ["Polymer laminate"],
+      "weight": {"note": "35-40% lighter than standard carrier"},
+      "use_case": "Concealed carry",
+      "confidence": 0.75,
+      "unknowns": ["Protection standard not published for this SKU — Unknown, requires verification"]
+    },
+    {
+      "id": "vest-006",
+      "name": "TacVest SF",
+      "features": ["Flame-retardant", "Waterproof", "Scalable protection from patrol to assault load"],
+      "confidence": 0.7,
+      "unknowns": ["Specific protection standard — Unknown, requires verification"]
+    },
+    {
+      "id": "vest-007",
+      "name": "13PSF + Tac-Belt",
+      "protection_standards": ["NIJ Level IV"],
+      "weight": {"full_kit": "6.5-7.8 kg"},
+      "features": ["Dynamic load spread to reduce operator fatigue"],
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "vest-008",
+      "name": "Vanguard Vest",
+      "protection_standards": ["NIJ Level IV Front/Back/Side"],
+      "weight": {"full_kit": "7.0-8.0 kg"},
+      "features": ["Magnetic RapidExit (all four points, single action)"],
+      "confidence": 0.85,
+      "unknowns": []
+    }
+  ]
+}

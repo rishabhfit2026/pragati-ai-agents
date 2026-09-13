@@ -1,0 +1,17 @@
+# Python
+apps/api/.venv/
+apps/api/__pycache__/
+apps/api/**/__pycache__/
+apps/api/app/data/*.db
+apps/api/app/data/uploads/*
+!apps/api/app/data/uploads/.gitkeep
+apps/api/.pytest_cache/
+apps/api/.env
+
+# Node / Next.js
+apps/web/node_modules/
+apps/web/.next/
+apps/web/.env.local
+
+# OS
+.DS_Store

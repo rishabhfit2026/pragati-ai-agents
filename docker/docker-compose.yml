@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pragati
+      POSTGRES_PASSWORD: pragati_dev_password
+      POSTGRES_DB: pragati_opportunity_intelligence
+    ports:
+      - "5433:5432"
+    volumes:
+      - pragati_pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ../apps/api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pragati:pragati_dev_password@postgres:5432/pragati_opportunity_intelligence
+      LLM_PROVIDER: mock
+      OCR_PROVIDER: auto
+      ALLOW_EXTERNAL_LLM_CALLS: "false"
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      KNOWLEDGE_DIR: /knowledge
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    volumes:
+      - ../knowledge:/knowledge:ro
+      - pragati_uploads:/app/app/data/uploads
+
+  web:
+    build:
+      context: ../apps/web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pragati_pgdata:
+  pragati_uploads:

@@ -1,0 +1,54 @@
+{
+  "_source": "https://www.pragatidefence.com/products (public marketing page, fetched 2026-09-13)",
+  "_disclaimer": "DEMO / PUBLIC DATA — figures are as published on the public website. Independent/current test certificates were not verified for this prototype.",
+  "category": "Headborne Systems / Combat Helmets",
+  "products": [
+    {
+      "id": "helmet-001",
+      "name": "HPS Rifle Helmet",
+      "sku_ref": "H3-11302-BL",
+      "protection_standards": ["NIJ Level IIIA (standalone)"],
+      "threats_defeated": ["AK-47 API BZ (with CeraTech appliqué)"],
+      "materials": ["CeraTech ceramic appliqué", "D3O impact liner"],
+      "weight": {"shell": "<700 g", "full_helmet": "<950 g"},
+      "features": ["TWISTFIT retention system", "NVG-ready shroud/rail", "Back-face deformation <10mm", "Modular ceramic upgrade"],
+      "shelf_life": "10+ years (manufacturer stated)",
+      "confidence": 0.85,
+      "unknowns": ["Independent NIJ certificate number — Unknown, requires verification", "Batch test reports — Unknown, requires verification"]
+    },
+    {
+      "id": "helmet-002",
+      "name": "Sentinel",
+      "protection_standards": ["VPAM 3+"],
+      "threats_defeated": ["AK-47 MSC", "7.62x51 M80 Ball"],
+      "weight": {"full_helmet": "1.95-2.10 kg"},
+      "features": ["Multi-hit rated", "360 degree coverage including ear curvature", "Back-face deformation <13mm", "Headset/NVG/comms integration"],
+      "confidence": 0.85,
+      "unknowns": ["Independent VPAM certificate — Unknown, requires verification"]
+    },
+    {
+      "id": "helmet-003",
+      "name": "Guardian HPS",
+      "protection_standards": ["Fragment (V50) — highest in manufacturer's range, exact V50 value not published"],
+      "features": ["3D laser-cut modular armour design", "Back-face deformation <4mm for handgun rounds"],
+      "confidence": 0.7,
+      "unknowns": ["Exact V50 fragment rating in m/s — Unknown, requires verification"]
+    },
+    {
+      "id": "helmet-004",
+      "name": "Ultra Light SF",
+      "weight": {"full_helmet": "sub-kilogram"},
+      "threats_defeated": ["9x19mm", ".44 MAG at >600 m/s"],
+      "use_cases": ["VIP protection", "Special forces insertion", "Urban counter-terrorism"],
+      "confidence": 0.8,
+      "unknowns": []
+    },
+    {
+      "id": "helmet-005",
+      "name": "Rifle + ProApto",
+      "features": ["Visual/NIR/thermal signature reduction (90% coverage across 3 spectrums)", "14 vegetation anchor points", "NVG-safe"],
+      "confidence": 0.75,
+      "unknowns": ["Rifle-rated protection standard for this variant — Unknown, requires verification"]
+    }
+  ]
+}
