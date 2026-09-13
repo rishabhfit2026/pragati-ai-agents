@@ -29,19 +29,26 @@ class Settings(BaseSettings):
 
     # LLM provider abstraction. "mock" = deterministic, offline, zero-cost, no API key
     # required. This is the default so the app is runnable out of the box.
+    # One of: mock | anthropic | openai | groq | gemini | nvidia | failover
     llm_provider: str = "mock"
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
     groq_api_key: str | None = None
+    gemini_api_key: str | None = None
     nvidia_api_key: str | None = None
     # Per-provider default model used when LLM_MODEL is not set; each real
     # provider class also has its own sane default, so this only needs to be
     # set when overriding the model for whichever provider is active.
     llm_model: str | None = None
+    # LLM_PROVIDER=failover chains these, in order, using whichever of them
+    # has an API key configured — a rate limit/outage on one just moves on
+    # to the next rather than failing the whole analysis.
+    llm_failover_order: tuple[str, ...] = ("groq", "gemini", "nvidia")
 
     # OCR provider abstraction. "mock" simulates OCR for scanned pages when
     # tesseract is not installed on the host.
-    ocr_provider: str = "auto"  # auto | tesseract | mock
+    ocr_provider: str = "auto"  # auto | tesseract | mock | nvidia
+    nvidia_ocr_api_key: str | None = None
 
     max_upload_mb: int = 25
     allowed_upload_types: tuple[str, ...] = (".pdf",)
@@ -51,8 +58,9 @@ class Settings(BaseSettings):
 
     cors_origins: tuple[str, ...] = ("http://localhost:3000", "http://127.0.0.1:3000")
 
-    # If false, no document content is ever sent to an external LLM API,
-    # regardless of llm_provider — enforced server-side, not by the frontend.
+    # If false, no document content (text OR page images) is ever sent to an
+    # external LLM/OCR API, regardless of llm_provider/ocr_provider — enforced
+    # server-side here, not left to the caller or the frontend.
     allow_external_llm_calls: bool = False
 
 

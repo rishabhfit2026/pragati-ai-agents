@@ -150,7 +150,7 @@ def run_pipeline(
                   description=f"Text extracted from {di_result.document.page_count} page(s); {di_result.pages_requiring_ocr} required OCR fallback.")
 
         # 2. Requirement Extraction
-        req_result, _ = _run_stage(
+        req_result, req_run_row = _run_stage(
             db, analysis.id, "Requirement Extraction Agent",
             lambda is_retry: extract_requirements(
                 di_result.document, llm,
@@ -158,6 +158,15 @@ def run_pipeline(
             ),
             model_used=llm.model, prompt_version=prompt_version,
         )
+        # For a failover chain, `llm.model` above is just the static list of
+        # candidates — once a call has actually gone through, reflect which
+        # one really served it, for accurate observability/audit records.
+        actually_used = getattr(llm, "last_used", None)
+        if actually_used is not None:
+            req_run_row.model_used = llm.last_used_label
+            analysis.llm_provider = actually_used.name
+            analysis.llm_model = actually_used.model
+            db.flush()
         requirements_data = req_result.requirements
         tender_metadata = req_result.metadata
         log_event(db, tender_id=tender.id, analysis_id=analysis.id, event_type="REQUIREMENTS_EXTRACTED",

@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from app.llm.anthropic_provider import METADATA_PROMPT, REQUIREMENTS_PROMPT
-from app.llm.provider import LLMProvider, InvalidJSONError, LLMTimeoutError
+from app.llm.provider import LLMProvider, InvalidJSONError, LLMProviderError, LLMTimeoutError
 from app.services.pdf_extract import PageExtract
 
 
@@ -32,9 +32,18 @@ class OpenAICompatibleProvider(LLMProvider):
             payload["response_format"] = {"type": "json_object"}
         try:
             resp = httpx.post(self.base_url, headers=headers, json=payload, timeout=60)
-            resp.raise_for_status()
         except httpx.TimeoutException as e:
             raise LLMTimeoutError(str(e)) from e
+        except httpx.HTTPError as e:
+            raise LLMProviderError(f"{self.name}: connection error: {e}") from e
+
+        if resp.status_code >= 400:
+            # 429 = rate limited, 401/403 = bad/missing key, 5xx = provider outage —
+            # all of these mean "this provider can't serve this request right now",
+            # which is exactly what a failover chain needs to catch and act on.
+            raise LLMProviderError(
+                f"{self.name}: HTTP {resp.status_code}: {resp.text[:300]}", status_code=resp.status_code
+            )
         return resp.json()["choices"][0]["message"]["content"]
 
     @staticmethod

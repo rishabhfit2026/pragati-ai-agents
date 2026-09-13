@@ -14,7 +14,7 @@ class NvidiaProvider(OpenAICompatibleProvider):
     base_url = "https://integrate.api.nvidia.com/v1/chat/completions"
     supports_json_mode = False
 
-    def __init__(self, model: str = "meta/llama-3.1-70b-instruct", api_key: str | None = None):
+    def __init__(self, model: str = "nvidia/llama-3.1-nemotron-70b-instruct", api_key: str | None = None):
         from app.config import settings
 
         super().__init__(api_key=api_key or settings.nvidia_api_key or "", model=model)

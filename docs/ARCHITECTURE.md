@@ -87,13 +87,30 @@ re-analyses/replays/overrides (section 18).
 
 - **LLM** (`app/llm/`): `MockLLMProvider` is a real rule-based/regex extraction
   engine (not a stub) tuned to Indian government/defence tender phrasing —
-  it's the default so the whole system runs with zero API keys. `AnthropicProvider`
-  / `OpenAIProvider` are real, optional, and gated by both `LLM_PROVIDER=...`
-  **and** `ALLOW_EXTERNAL_LLM_CALLS=true` — enforced server-side in
-  `get_llm_provider()`, not left to the caller.
+  it's the default so the whole system runs with zero API keys. `AnthropicProvider`,
+  `OpenAIProvider`, `GroqProvider`, `GeminiProvider`, and `NvidiaProvider` are
+  real, optional, and gated by both `LLM_PROVIDER=...` **and**
+  `ALLOW_EXTERNAL_LLM_CALLS=true` — enforced server-side in
+  `get_llm_provider()`, not left to the caller. The last four share one
+  `OpenAICompatibleProvider` base (`app/llm/openai_compatible.py`) since Groq,
+  Gemini, and NVIDIA NIM all speak the OpenAI chat-completions wire format.
+  `LLM_PROVIDER=failover` (`app/llm/failover_provider.py`) chains several of
+  these — configured via `LLM_FAILOVER_ORDER`, e.g. Groq → Gemini → NVIDIA —
+  and moves to the next provider on any error (rate limit, auth, outage,
+  timeout, or unparseable response), which matters in practice: free-tier
+  keys rate-limit fast, and stacking two or three turns that into a non-issue.
+  Whichever provider actually served a given request is recorded on the
+  `Analysis`/`AgentRun` rows for real observability, not just "failover" as
+  an opaque label.
 - **OCR** (`app/ocr/`): tries Tesseract if installed, otherwise a clearly
   labelled mock ("Simulated OCR output... no OCR engine installed") so the
-  demo never overstates what happened to a scanned page.
+  demo never overstates what happened to a scanned page. `OCR_PROVIDER=nvidia`
+  (`app/ocr/nvidia_ocr_provider.py`) swaps in NVIDIA's hosted Nemotron OCR v2
+  vision model instead — same `ALLOW_EXTERNAL_LLM_CALLS` gate applies, since a
+  scanned page image is document content leaving the server just as much as
+  extracted text is. The rendered page image is recompressed (JPEG, adaptive
+  quality/resolution) to fit NVIDIA's inline base64 request budget rather than
+  implementing their separate multi-step assets-upload API.
 
 ## Security posture
 

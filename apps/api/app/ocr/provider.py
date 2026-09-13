@@ -47,6 +47,10 @@ class MockOCRProvider(OCRProvider):
 
 
 def get_ocr_provider() -> OCRProvider:
+    if settings.ocr_provider == "nvidia" and settings.nvidia_ocr_api_key and settings.allow_external_llm_calls:
+        from app.ocr.nvidia_ocr_provider import NvidiaOCRProvider
+
+        return NvidiaOCRProvider()
     if settings.ocr_provider == "mock":
         return MockOCRProvider()
     if settings.ocr_provider == "tesseract":
