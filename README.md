@@ -9,76 +9,84 @@ a raw tender/RFP into a structured, explainable, auditable bid decision.
 > clearly-labelled **synthetic demo data**. It is not connected to any
 > confidential or internal Pragati system.
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
-
 ## Agent architecture — who does what
 
-A tender PDF passes through **8 agents in a fixed pipeline**
-(`apps/api/app/agents/orchestrator.py`). Only 5 of them call an LLM; the
-score and decision are always plain deterministic code, never AI-decided.
+A tender PDF goes through **8 agents, one after another, always in this
+order**. Think of it like a document moving down an assembly line — each
+station does one job and hands its output to the next.
 
 ```mermaid
-flowchart TD
-    Upload(["Tender PDF uploaded"]) --> DI
+flowchart LR
+    Start(["📄 Tender PDF"]) --> A1
+    A1["1️⃣ Read the Document"] --> A2
+    A2["2️⃣ Extract Requirements"] --> A3
+    A3["3️⃣ Match Capabilities"] --> A4
+    A4["4️⃣ Check Compliance"] --> A5
+    A5["5️⃣ Assess Risks"] --> A6
+    A6["6️⃣ Score Business Fit"] --> A7
+    A7["7️⃣ Calculate Final Score"] --> A8
+    A8["8️⃣ Make Decision"] --> End(["🧑 Human Review"])
 
-    subgraph Pipeline["8-stage agent pipeline — runs in this exact order"]
-        direction TB
-        DI["<b>1. Document Intelligence Agent</b><br/>PyMuPDF text extraction (+ OCR fallback)<br/><i>no LLM</i>"]
-        RE["<b>2. Requirement Extraction Agent</b><br/>raw tender text → structured requirements<br/>🤖 LLM"]
-        CM["<b>3. Capability Matching Agent</b><br/>does a Pragati product cover this requirement?<br/>🤖 LLM + RAG"]
-        CO["<b>4. Eligibility &amp; Compliance Agent</b><br/>can we actually prove it? conservative by design<br/>🤖 LLM"]
-        RI["<b>5. Risk Analysis Agent</b><br/>builds the risk register from findings above<br/>🤖 LLM"]
-        CS["<b>6. Commercial &amp; Strategic Agent</b><br/>strategic / commercial / delivery sub-scores<br/>🤖 LLM"]
-        SC["<b>7. Opportunity Scoring Agent</b><br/>weighted sum of all 6 sub-scores<br/>🧮 deterministic Python, no LLM"]
-        DE["<b>8. Decision Agent</b><br/>PURSUE / REVIEW / DO_NOT_PURSUE<br/>⚖️ deterministic rules, no LLM"]
-
-        DI --> RE --> CM --> CO --> RI --> CS --> SC --> DE
-    end
-
-    DE --> HR(["Human Review / Override<br/>UI-driven, no LLM"])
-
-    OCR{{"Nemotron OCR v2<br/>(only when a page has no live text layer)"}}
-    DI -. scanned page .-> OCR
-    OCR -.-> RE
-
-    KB[("Pragati Knowledge Base<br/>/knowledge — public + synthetic data")]
-    CM -. RAG retrieval .-> KB
-    CO -. reads .-> KB
-
-    subgraph LLMChain["LLM failover chain — LLM_PROVIDER=failover"]
-        direction LR
-        Groq["Groq"] -->|on error / rate limit| Gemini["Gemini"] -->|on error / rate limit| Nemotron["NVIDIA NIM<br/>(Nemotron)"]
-    end
-
-    RE -.-> LLMChain
-    CM -.-> LLMChain
-    CO -.-> LLMChain
-    RI -.-> LLMChain
-    CS -.-> LLMChain
-
-    classDef llm fill:#3b82f6,color:#fff,stroke:#1d4ed8;
-    classDef det fill:#22c55e,color:#0b1220,stroke:#15803d;
-    classDef store fill:#334155,color:#fff,stroke:#0f172a;
-    class RE,CM,CO,RI,CS,Groq,Gemini,Nemotron,OCR llm;
-    class SC,DE det;
-    class KB store;
+    classDef ai fill:#3b82f6,color:#ffffff,stroke:#1d4ed8,stroke-width:1px;
+    classDef math fill:#22c55e,color:#062e14,stroke:#15803d,stroke-width:1px;
+    classDef endpoint fill:#e2e8f0,color:#0f172a,stroke:#94a3b8,stroke-width:1px;
+    class A2,A3,A4,A5,A6 ai;
+    class A7,A8 math;
+    class Start,End endpoint;
 ```
 
-**Why only 5 agents use an LLM:** everything upstream of scoring produces
-*facts* (a requirement was found, a product matches it, a certificate is
-unverified) — that needs real language understanding, so it's LLM-driven,
-with RAG for Capability Matching (it retrieves the relevant product entries
-from the knowledge base before reasoning over them). Everything from Scoring
-onward just *combines* those facts with fixed arithmetic/rules — deliberately
-kept out of the LLM's hands so the score/decision stay explainable,
-reproducible under Replay, and never able to silently invent a capability or
-certification that isn't real.
+🔵 **Blue = an AI model does the thinking here.** 🟢 **Green = plain code does
+fixed math/rules — no AI involved, ever.**
 
-**Resilience:** every LLM-backed agent has a deterministic fallback (used
-offline, and automatically if an LLM response is missing/malformed/uncited),
-and `LLM_PROVIDER=failover` chains multiple providers (Groq → Gemini →
-NVIDIA) so a rate limit on one doesn't stall the analysis — see
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full reasoning.
+| # | Agent | What it actually does, in plain terms | Uses AI? |
+|---|---|---|---|
+| 1 | **Document Intelligence** | Opens the PDF and pulls out the raw text. If a page is a scanned image with no real text on it, it sends that page to an OCR model instead of skipping it. | No |
+| 2 | **Requirement Extraction** | Reads the messy tender language and turns it into a clean checklist: "the helmet must weigh under 1kg," "delivery within 30 days," etc. | ✅ Yes |
+| 3 | **Capability Matching** | For every item on that checklist, looks up Pragati's real product catalogue and asks "do we actually make something that covers this?" It looks up the relevant products *first*, then reasons over just those (that lookup-then-reason pattern is called RAG). | ✅ Yes (+ lookup) |
+| 4 | **Eligibility & Compliance** | A stricter second check specifically for certifications and eligibility rules. It's deliberately paranoid: a certificate that's *claimed* but not *proven* stays marked "unverified," never gets waved through as a pass. | ✅ Yes |
+| 5 | **Risk Analysis** | Looks at everything found in steps 3 and 4 and writes up what could realistically go wrong (e.g. "this certification isn't confirmed" becomes a real risk entry with a suggested fix). | ✅ Yes |
+| 6 | **Commercial & Strategic** | Judges how attractive this deal is as a business opportunity — market fit, deal size, whether the delivery timeline is realistic. | ✅ Yes |
+| 7 | **Opportunity Scoring** | Takes the numbers produced by steps 2–6 and combines them into one final score out of 100, using a fixed weighted formula. No AI touches this step — it's the same arithmetic every time. | No — pure math |
+| 8 | **Decision** | Turns the score into PURSUE / REVIEW / DO NOT PURSUE using fixed business rules (e.g. "if a mandatory requirement has no match, it can never be an automatic PURSUE"). | No — fixed rules |
+
+After step 8, a **person** reviews the recommendation on the dashboard and
+can agree with it or override it — the system never submits a bid decision
+on its own.
+
+**Why steps 7 and 8 are never AI:** everything before them produces *facts*
+(a requirement exists, a product matches it, a certificate is unverified) —
+finding those facts needs real language understanding, so that part is
+AI-driven. But turning those facts into a *score* and a *decision* is just
+arithmetic and if/else rules on purpose, so the result is always explainable
+("why is the score 78?" has a real answer, not "the AI felt like it"),
+repeatable, and can never quietly invent a capability or certificate that
+doesn't actually exist.
+
+### If one AI provider fails, another takes over
+
+Steps 2–6 above call an LLM (Groq, Gemini, or NVIDIA, depending on config).
+When `LLM_PROVIDER=failover` is set, the system tries them in order and
+automatically moves to the next one if a call fails or hits a rate limit —
+so one provider having a bad moment doesn't stop the whole analysis.
+
+```mermaid
+flowchart LR
+    Groq["Groq"] -- "fails or rate-limited" --> Gemini["Gemini"]
+    Gemini -- "also fails" --> Nemotron["NVIDIA NIM<br/>(Nemotron)"]
+
+    classDef p fill:#3b82f6,color:#ffffff,stroke:#1d4ed8,stroke-width:1px;
+    class Groq,Gemini,Nemotron p;
+```
+
+Two more things worth knowing:
+- **Scanned pages** (a page that's just a photo of text, no real text layer)
+  get sent to **NVIDIA's Nemotron OCR v2** model instead of being skipped —
+  this only happens for that specific page, not every page.
+- **Steps 3 and 4** don't just guess — they read from
+  [`/knowledge`](knowledge), a small local file of Pragati's real, publicly
+  published product specs and company facts, before answering.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
 
 ## Quick start (no Docker, no API keys)
 
