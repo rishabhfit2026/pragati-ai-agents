@@ -11,6 +11,75 @@ a raw tender/RFP into a structured, explainable, auditable bid decision.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
 
+## Agent architecture — who does what
+
+A tender PDF passes through **8 agents in a fixed pipeline**
+(`apps/api/app/agents/orchestrator.py`). Only 5 of them call an LLM; the
+score and decision are always plain deterministic code, never AI-decided.
+
+```mermaid
+flowchart TD
+    Upload(["Tender PDF uploaded"]) --> DI
+
+    subgraph Pipeline["8-stage agent pipeline — runs in this exact order"]
+        direction TB
+        DI["<b>1. Document Intelligence Agent</b><br/>PyMuPDF text extraction (+ OCR fallback)<br/><i>no LLM</i>"]
+        RE["<b>2. Requirement Extraction Agent</b><br/>raw tender text → structured requirements<br/>🤖 LLM"]
+        CM["<b>3. Capability Matching Agent</b><br/>does a Pragati product cover this requirement?<br/>🤖 LLM + RAG"]
+        CO["<b>4. Eligibility &amp; Compliance Agent</b><br/>can we actually prove it? conservative by design<br/>🤖 LLM"]
+        RI["<b>5. Risk Analysis Agent</b><br/>builds the risk register from findings above<br/>🤖 LLM"]
+        CS["<b>6. Commercial &amp; Strategic Agent</b><br/>strategic / commercial / delivery sub-scores<br/>🤖 LLM"]
+        SC["<b>7. Opportunity Scoring Agent</b><br/>weighted sum of all 6 sub-scores<br/>🧮 deterministic Python, no LLM"]
+        DE["<b>8. Decision Agent</b><br/>PURSUE / REVIEW / DO_NOT_PURSUE<br/>⚖️ deterministic rules, no LLM"]
+
+        DI --> RE --> CM --> CO --> RI --> CS --> SC --> DE
+    end
+
+    DE --> HR(["Human Review / Override<br/>UI-driven, no LLM"])
+
+    OCR{{"Nemotron OCR v2<br/>(only when a page has no live text layer)"}}
+    DI -. scanned page .-> OCR
+    OCR -.-> RE
+
+    KB[("Pragati Knowledge Base<br/>/knowledge — public + synthetic data")]
+    CM -. RAG retrieval .-> KB
+    CO -. reads .-> KB
+
+    subgraph LLMChain["LLM failover chain — LLM_PROVIDER=failover"]
+        direction LR
+        Groq["Groq"] -->|on error / rate limit| Gemini["Gemini"] -->|on error / rate limit| Nemotron["NVIDIA NIM<br/>(Nemotron)"]
+    end
+
+    RE -.-> LLMChain
+    CM -.-> LLMChain
+    CO -.-> LLMChain
+    RI -.-> LLMChain
+    CS -.-> LLMChain
+
+    classDef llm fill:#3b82f6,color:#fff,stroke:#1d4ed8;
+    classDef det fill:#22c55e,color:#0b1220,stroke:#15803d;
+    classDef store fill:#334155,color:#fff,stroke:#0f172a;
+    class RE,CM,CO,RI,CS,Groq,Gemini,Nemotron,OCR llm;
+    class SC,DE det;
+    class KB store;
+```
+
+**Why only 5 agents use an LLM:** everything upstream of scoring produces
+*facts* (a requirement was found, a product matches it, a certificate is
+unverified) — that needs real language understanding, so it's LLM-driven,
+with RAG for Capability Matching (it retrieves the relevant product entries
+from the knowledge base before reasoning over them). Everything from Scoring
+onward just *combines* those facts with fixed arithmetic/rules — deliberately
+kept out of the LLM's hands so the score/decision stay explainable,
+reproducible under Replay, and never able to silently invent a capability or
+certification that isn't real.
+
+**Resilience:** every LLM-backed agent has a deterministic fallback (used
+offline, and automatically if an LLM response is missing/malformed/uncited),
+and `LLM_PROVIDER=failover` chains multiple providers (Groq → Gemini →
+NVIDIA) so a rate limit on one doesn't stall the analysis — see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full reasoning.
+
 ## Quick start (no Docker, no API keys)
 
 Requires Python 3.11+ and Node 20+.
@@ -34,8 +103,14 @@ Open http://localhost:3000, click **Load Demo**, and explore.
 
 The backend defaults to a deterministic, offline mock LLM/OCR provider — the
 entire pipeline runs with zero API keys and zero external network calls. To
-use a real LLM, set `LLM_PROVIDER=anthropic` (or `openai`), the matching API
-key, and `ALLOW_EXTERNAL_LLM_CALLS=true` in `apps/api/.env`.
+use real LLM reasoning, set `LLM_PROVIDER` in `apps/api/.env` to one of
+`anthropic | openai | groq | gemini | nvidia | failover`, the matching API
+key(s), and `ALLOW_EXTERNAL_LLM_CALLS=true`. `failover` chains several
+providers (`LLM_FAILOVER_ORDER`, default `groq,gemini,nvidia`) so a rate
+limit on one doesn't stall an analysis. For OCR on scanned pages, set
+`OCR_PROVIDER=nvidia` and `NVIDIA_OCR_API_KEY` to use Nemotron OCR v2 instead
+of the local Tesseract/mock fallback. See `apps/api/.env.example` for every
+option.
 
 ## Quick start (Docker)
 
@@ -91,9 +166,11 @@ pip install -r requirements-dev.txt
 pytest -q
 ```
 
-30 tests covering the deterministic scoring/decision logic, capability
-matching, the mock extraction engine, and full API integration flows
-(upload → analyze → override → replay → report, plus the failure simulator).
+50 tests covering the deterministic scoring/decision logic, capability
+matching (including the LLM+RAG path's citation-validation safety net),
+the mock extraction engine, the LLM failover chain, and full API integration
+flows (upload → analyze → override → replay → report, plus the failure
+simulator).
 
 ## Priority scope note
 
