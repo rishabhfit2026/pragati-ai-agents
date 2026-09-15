@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -56,7 +58,30 @@ class Settings(BaseSettings):
     prompt_version: str = "req-extract-v1"
     scoring_version: str = "score-v1"
 
-    cors_origins: tuple[str, ...] = ("http://localhost:3000", "http://127.0.0.1:3000")
+    # Exact origins that are always allowed. Local dev only needs localhost
+    # here — production/preview Vercel origins are handled unconditionally
+    # by cors_origin_regex below, not by this list, so a narrower local .env
+    # value (e.g. just localhost) can never accidentally lock out Vercel.
+    cors_origins: tuple[str, ...] = (
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://pragati-ai-agents.vercel.app",
+    )
+    # Additionally allow any Vercel preview URL for this project (each deploy
+    # gets a new random-hash subdomain, so a fixed list would need editing
+    # after every single deploy) — matches both the "-<hash>-<user>" preview
+    # pattern and the "-git-<branch>-<user>" branch-deploy pattern.
+    cors_origin_regex: str | None = r"^https://pragati-ai-agents(-[a-zA-Z0-9-]+)?\.vercel\.app$"
+
+    @field_validator("cors_origin_regex")
+    @classmethod
+    def _empty_regex_means_disabled(cls, v: str | None) -> str | None:
+        # A regex of "" matches every string (re.match("", anything) is
+        # truthy) — if this were ever passed straight to CORSMiddleware, an
+        # accidentally-empty CORS_ORIGIN_REGEX env var would silently open
+        # CORS to every origin while allow_credentials=True is on. Normalize
+        # "empty" to "disabled" instead.
+        return v or None
 
     # If false, no document content (text OR page images) is ever sent to an
     # external LLM/OCR API, regardless of llm_provider/ocr_provider — enforced
