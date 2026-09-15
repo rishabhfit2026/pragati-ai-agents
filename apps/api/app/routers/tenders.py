@@ -58,7 +58,23 @@ async def upload_tender(file: UploadFile = File(...), db: Session = Depends(get_
 @router.post("/{tender_id}/analyze", response_model=AnalysisOut)
 def analyze_tender(tender_id: str, req: AnalyzeRequest = AnalyzeRequest(), db: Session = Depends(get_db)):
     tender = _get_tender(db, tender_id)
-    file_bytes = Path(tender.file_path).read_bytes()
+    try:
+        file_bytes = Path(tender.file_path).read_bytes()
+    except OSError as e:
+        # Deliberately its own try/except, separate from the pipeline's
+        # below: this file read used to happen BEFORE the try block, so a
+        # missing file (e.g. ephemeral disk storage on a host like Render —
+        # an uploaded file doesn't survive a restart/redeploy unless a
+        # persistent disk is attached) raised an unhandled OSError that
+        # bypassed FastAPI's exception handling entirely and, as a direct
+        # consequence, was missing CORS response headers — which a browser
+        # reports as a CORS error, hiding the real cause. Every failure path
+        # in this endpoint must resolve to an HTTPException.
+        raise HTTPException(
+            404,
+            f"The uploaded document for this tender could not be found on the server ({e}). "
+            "It may have been lost due to a server restart — please re-upload the tender and try again.",
+        )
     try:
         analysis = run_pipeline(db, tender, file_bytes, simulate_failure=req.simulate_failure)
         db.commit()
@@ -170,7 +186,14 @@ def replay_analysis(tender_id: str, req: ReplayRequest, db: Session = Depends(ge
         raise HTTPException(404, "No prior analysis to replay. Run /analyze first.")
     old_dict = analysis_to_dict(old_analysis)
 
-    file_bytes = Path(tender.file_path).read_bytes()
+    try:
+        file_bytes = Path(tender.file_path).read_bytes()
+    except OSError as e:
+        raise HTTPException(
+            404,
+            f"The uploaded document for this tender could not be found on the server ({e}). "
+            "It may have been lost due to a server restart — please re-upload the tender and try again.",
+        )
     new_analysis = run_pipeline(
         db, tender, file_bytes,
         llm_provider_name=req.llm_provider, llm_model=req.llm_model,

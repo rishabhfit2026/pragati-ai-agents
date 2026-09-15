@@ -6,7 +6,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-UPLOAD_DIR = DATA_DIR / "uploads"
+
+# Local dev default: apps/api/app/data/uploads, inside the source tree. On a
+# host with ephemeral local disk (e.g. Render without a persistent disk
+# attached), anything written here is lost on every restart/redeploy —
+# UPLOAD_DIR env var overrides the default so production can point this at a
+# mounted persistent disk instead, with zero change to local dev behavior.
+_default_upload_dir = DATA_DIR / "uploads"
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(_default_upload_dir)))
 
 # In local dev the repo layout is apps/api/app/config.py -> ../../../knowledge.
 # In Docker the knowledge folder is mounted directly at /knowledge (see
