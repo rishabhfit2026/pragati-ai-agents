@@ -26,12 +26,19 @@ class Tender(Base):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # --- extracted tender metadata (filled by Requirement Extraction Agent) ---
+    # issue_date/submission_deadline/delivery_deadline are LLM-extracted
+    # free-text phrases from tender prose (e.g. "12 months from date of
+    # contract signing"), not normalized dates — they were originally
+    # String(32), which a real deployed tender's delivery_deadline (39 chars)
+    # exceeded, causing a Postgres StringDataRightTruncation error on Render.
+    # Widened to String(255), matching the other free-text metadata fields
+    # below, since none of these have a real fixed maximum length.
     title: Mapped[str | None] = mapped_column(String(512), nullable=True)
     issuing_organization: Mapped[str | None] = mapped_column(String(256), nullable=True)
     tender_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    issue_date: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    submission_deadline: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    delivery_deadline: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    issue_date: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    submission_deadline: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    delivery_deadline: Mapped[str | None] = mapped_column(String(255), nullable=True)
     geography: Mapped[str | None] = mapped_column(String(128), nullable=True)
     estimated_quantity: Mapped[str | None] = mapped_column(String(128), nullable=True)
     product_category: Mapped[str | None] = mapped_column(String(128), nullable=True)

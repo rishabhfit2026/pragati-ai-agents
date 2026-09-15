@@ -79,7 +79,19 @@ def analyze_tender(tender_id: str, req: AnalyzeRequest = AnalyzeRequest(), db: S
         analysis = run_pipeline(db, tender, file_bytes, simulate_failure=req.simulate_failure)
         db.commit()
     except Exception as e:
-        db.commit()  # persist FAILED status + audit trail written before the raise
+        # run_pipeline's own except block already rolled back the failed
+        # transaction and flushed a fresh FAILED Analysis/AuditEvent record
+        # in a clean one (see orchestrator.py) — this just needs to make
+        # that durable. Still guarded with its own rollback-on-failure:
+        # committing again without checking for a further failure is exactly
+        # the bug this whole pattern exists to avoid repeating — a Postgres
+        # transaction that failed once rejects every further command until
+        # it's explicitly rolled back, so an unguarded second commit() would
+        # itself raise a second, more confusing error that masks the first.
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
         raise HTTPException(500, f"Analysis failed: {e}")
     db.refresh(analysis)
     return AnalysisOut(**analysis_to_dict(analysis))
@@ -194,13 +206,23 @@ def replay_analysis(tender_id: str, req: ReplayRequest, db: Session = Depends(ge
             f"The uploaded document for this tender could not be found on the server ({e}). "
             "It may have been lost due to a server restart — please re-upload the tender and try again.",
         )
-    new_analysis = run_pipeline(
-        db, tender, file_bytes,
-        llm_provider_name=req.llm_provider, llm_model=req.llm_model,
-        prompt_version=req.prompt_version, scoring_version=req.scoring_version,
-        is_replay_of=old_analysis.id,
-    )
-    db.commit()
+    try:
+        new_analysis = run_pipeline(
+            db, tender, file_bytes,
+            llm_provider_name=req.llm_provider, llm_model=req.llm_model,
+            prompt_version=req.prompt_version, scoring_version=req.scoring_version,
+            is_replay_of=old_analysis.id,
+        )
+        db.commit()
+    except Exception as e:
+        # Same failure -> retry -> fallback story as /analyze (see the
+        # comment there): run_pipeline already rolled back and flushed a
+        # clean FAILED record on its own failure, this just persists it.
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+        raise HTTPException(500, f"Replay failed: {e}")
     db.refresh(new_analysis)
     new_dict = analysis_to_dict(new_analysis)
 

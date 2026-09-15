@@ -13,6 +13,7 @@ actually matters for reliability and observability.
 """
 from __future__ import annotations
 
+import logging
 import time
 import traceback
 from datetime import datetime
@@ -29,6 +30,8 @@ from app.models.analysis import (
 )
 from app.models.tender import Tender
 from app.services.audit import log_event
+
+logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 1
 
@@ -307,12 +310,52 @@ def run_pipeline(
                   description="Analysis pipeline completed successfully.")
 
     except Exception as e:
-        analysis.status = "FAILED"
-        analysis.error = str(e)
+        error_message = str(e)
+
+        # db.rollback() MUST be the very first thing that happens here,
+        # before touching ANY attribute of a session-attached object
+        # (tender.id included) — not just before the next flush/commit.
+        # Verified directly: once a flush has failed, SQLAlchemy raises
+        # PendingRollbackError on the very next attribute access through
+        # that session, even a pure in-memory read of an already-loaded id,
+        # not only on new SQL statements. An earlier version of this fix put
+        # a log statement referencing tender.id ahead of this rollback and
+        # that alone reproduced the exact masking-error bug this code exists
+        # to prevent — so nothing session-related may run before this line.
+        #
+        # Root cause this guards against: a failure inside the try block
+        # above can be a DB-level error itself (e.g. a value too long for a
+        # column — see the migration that widened tenders.delivery_deadline/
+        # etc). Postgres aborts the whole transaction the instant a
+        # statement fails: every further command on that same transaction
+        # is rejected until a ROLLBACK happens. rollback() discards the
+        # ENTIRE transaction, not just the failing statement, so `analysis`
+        # (created+flushed earlier in this same call) and `tender`'s
+        # in-memory changes (e.g. status="ANALYZING") are gone too — a
+        # fresh, minimal FAILED record is created below, in a new
+        # transaction, so the failure is still visible in the tender's
+        # timeline instead of vanishing without a trace.
+        db.rollback()
+
+        tender_id = tender.id
+        logger.exception("Analysis pipeline failed for tender %s", tender_id)
+
+        failed_analysis = Analysis(
+            tender_id=tender_id,
+            status="FAILED",
+            error=error_message,
+            llm_provider=llm.name,
+            llm_model=llm.model,
+            prompt_version=prompt_version,
+            scoring_version=scoring_version,
+            is_replay_of=is_replay_of,
+            simulated_failure=simulate_failure,
+        )
+        db.add(failed_analysis)
         tender.status = "FAILED"
         db.flush()
-        log_event(db, tender_id=tender.id, analysis_id=analysis.id, event_type="ANALYSIS_FAILED",
-                  description=f"Analysis pipeline failed: {e}")
+        log_event(db, tender_id=tender_id, analysis_id=failed_analysis.id, event_type="ANALYSIS_FAILED",
+                  description=f"Analysis pipeline failed: {error_message}")
         raise
 
     return analysis
