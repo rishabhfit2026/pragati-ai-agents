@@ -15,7 +15,8 @@ services:
 
   api:
     build:
-      context: ../apps/api
+      context: ..
+      dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg2://pragati:pragati_dev_password@postgres:5432/pragati_opportunity_intelligence
