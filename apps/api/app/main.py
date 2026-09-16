@@ -52,3 +52,18 @@ app.include_router(demo.router)
 @app.get("/api/health")
 def health():
     return {"status": "ok", "app": settings.app_name, "environment": settings.environment}
+
+
+@app.get("/")
+def root():
+    return {
+        "status": "healthy",
+        "service": "Pragati Opportunity Intelligence API"
+    }
+
+
+@app.get("/health")
+def health_root():
+    return {
+        "status": "healthy"
+    }
