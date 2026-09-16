@@ -97,3 +97,60 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def validate_llm_config(s: "Settings" = settings) -> None:
+    """Fail fast at startup if LLM_PROVIDER names a real provider but the
+    rest of the configuration needed to actually use it is incomplete.
+
+    Without this check, app/llm/provider.py's get_llm_provider() silently
+    falls back to MockLLMProvider whenever allow_external_llm_calls is False
+    or the relevant API key is missing — correct behavior for local dev
+    (where "mock" is the deliberate, explicit default), but dangerous in
+    production: a misconfigured deploy would keep serving 200 OK responses
+    with real-looking reports, just quietly stamped "mock/mock-analyst-v1"
+    instead of the real analysis the operator believes is running. Better to
+    refuse to start than to silently do that.
+    """
+    provider = s.llm_provider
+    if provider == "mock":
+        return
+
+    if not s.allow_external_llm_calls:
+        raise RuntimeError(
+            f"LLM_PROVIDER={provider!r} is set but ALLOW_EXTERNAL_LLM_CALLS is not "
+            "true, so every analysis would silently fall back to the mock provider. "
+            "Set ALLOW_EXTERNAL_LLM_CALLS=true, or set LLM_PROVIDER=mock explicitly "
+            "if mock output is actually intended."
+        )
+
+    key_by_provider = {
+        "anthropic": s.anthropic_api_key,
+        "openai": s.openai_api_key,
+        "groq": s.groq_api_key,
+        "gemini": s.gemini_api_key,
+        "nvidia": s.nvidia_api_key,
+    }
+
+    if provider == "failover":
+        configured = [name for name in s.llm_failover_order if key_by_provider.get(name)]
+        if not configured:
+            raise RuntimeError(
+                "LLM_PROVIDER=failover but none of the providers in LLM_FAILOVER_ORDER "
+                f"({', '.join(s.llm_failover_order)}) have an API key configured, so every "
+                "analysis would silently fall back to the mock provider. Set at least one "
+                "of GROQ_API_KEY / GEMINI_API_KEY / NVIDIA_API_KEY."
+            )
+        return
+
+    if provider not in key_by_provider:
+        raise RuntimeError(
+            f"LLM_PROVIDER={provider!r} is not a recognised provider name. Expected one "
+            f"of: mock, failover, {', '.join(key_by_provider)}."
+        )
+
+    if not key_by_provider[provider]:
+        raise RuntimeError(
+            f"LLM_PROVIDER={provider!r} is set but {provider.upper()}_API_KEY is missing, "
+            "so every analysis would silently fall back to the mock provider."
+        )

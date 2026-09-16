@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
+from app.config import settings, validate_llm_config
 from app.db import Base, engine
 from app import models  # noqa: F401  ensures models are registered before create_all
 from app.error_middleware import CORSSafeErrorMiddleware
 from app.routers import agents, dashboard, demo, knowledge, search, tenders
+
+# Fail fast rather than silently serving mock-provider analyses under a
+# misconfigured LLM_PROVIDER — see config.validate_llm_config for why.
+validate_llm_config(settings)
 
 Base.metadata.create_all(bind=engine)
 
